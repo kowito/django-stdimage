@@ -43,7 +43,7 @@ class StdImageFieldFile(ImageFieldFile):
             msg = (
                 '"render_variations" callable expects a boolean return value,'
                 ' but got %s'
-                ) % type(render_variations)
+            ) % type(render_variations)
             raise TypeError(msg)
         if render_variations:
             self.render_variations()
@@ -105,7 +105,21 @@ class StdImageFieldFile(ImageFieldFile):
                             size,
                             resample=resample
                         )
-
+                '''
+                Kowit Hacking to make crop options fit image anyway
+                '''
+                size = variation['width'], variation['height']
+                size = tuple(int(i) if i != float('inf') else i
+                             for i in size)
+                if variation['crop']:
+                    img = ImageOps.fit(
+                        img,
+                        size,
+                        method=resample
+                    )
+                '''
+                TODO : Hack in in correct way.
+                '''
                 with BytesIO() as file_buffer:
                     img.save(file_buffer, file_format)
                     f = ContentFile(file_buffer.getvalue())
