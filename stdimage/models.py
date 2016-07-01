@@ -6,10 +6,11 @@ import os
 from io import BytesIO
 
 from django.core.files.base import ContentFile
-from django.core.files.storage import DefaultStorage
+from django.core.files.storage import default_storage
 from django.db.models import signals
-from django.db.models.fields.files import (ImageField, ImageFieldFile,
-                                           ImageFileDescriptor)
+from django.db.models.fields.files import (
+    ImageField, ImageFieldFile, ImageFileDescriptor
+)
 from PIL import Image, ImageOps
 
 from .validators import MinSizeValidator
@@ -18,7 +19,6 @@ logger = logging.getLogger()
 
 
 class StdImageFileDescriptor(ImageFileDescriptor):
-
     """The variation property of the field is accessible in instance cases."""
 
     def __set__(self, instance, value):
@@ -27,7 +27,6 @@ class StdImageFileDescriptor(ImageFileDescriptor):
 
 
 class StdImageFieldFile(ImageFieldFile):
-
     """Like ImageFieldFile but handles variations."""
 
     def save(self, name, content, save=True):
@@ -60,7 +59,7 @@ class StdImageFieldFile(ImageFieldFile):
 
     @classmethod
     def render_variation(cls, file_name, variation, replace=False,
-                         storage=DefaultStorage()):
+                         storage=default_storage):
         """Render an image variation and saves it to the storage."""
         variation_name = cls.get_variation_name(file_name, variation['name'])
         if storage.exists(variation_name):
@@ -150,7 +149,6 @@ class StdImageFieldFile(ImageFieldFile):
 
 
 class StdImageField(ImageField):
-
     """
     Django ImageField that is able to create different size variations.
 

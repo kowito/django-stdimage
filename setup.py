@@ -1,42 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import os
-from setuptools import setup, Command, find_packages
-import sys
-
-
-class PyTest(Command):
-    user_options = []
-
-    def initialize_options(self):
-        pass
-
-    def finalize_options(self):
-        pass
-
-    def run(self):
-        import sys
-        import subprocess
-
-        errno = subprocess.call([sys.executable, 'runtests.py'])
-        raise SystemExit(errno)
-
-
-if 'sdist' in sys.argv or 'develop' in sys.argv:
-    try:
-        os.chdir('stdimage')
-        from django.core import management
-        management.call_command('compilemessages')
-    finally:
-        os.chdir('..')
-
+from setuptools import find_packages, setup
 
 setup(
     name='django-stdimage',
-    version='2.0.6',
+    version='2.3.3',
     description='Django Standarized Image Field',
     author='codingjoe',
     url='https://github.com/codingjoe/django-stdimage',
+    download_url='https://github.com/codingjoe/django-stdimage',
     author_email='info@johanneshoppe.com',
     license='MIT',
     classifiers=[
@@ -50,19 +22,20 @@ setup(
         'Programming Language :: Python',
         'Topic :: Software Development',
         'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.2',
-        'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: Implementation :: PyPy',
+        'Programming Language :: Python :: 3.5',
+        'Framework :: Django',
+        'Framework :: Django :: 1.8',
+        'Framework :: Django :: 1.9',
     ],
-    packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests", ".egg-info"]),
+    packages=find_packages(exclude=[
+        "*.tests", "*.tests.*", "tests.*", "tests", ".egg-info"
+    ]),
     include_package_data=True,
     install_requires=[
         'pillow>=2.5',
-        'progressbar2>=2.7',
+        'progressbar2>=3.0.0',
     ],
-    cmdclass={'test': PyTest},
 )

@@ -4,21 +4,23 @@ from __future__ import absolute_import, unicode_literals
 import os
 import uuid
 
-from django.core.files.storage import DefaultStorage
+from django.core.files.storage import default_storage
 from django.utils.text import slugify
 
 from .models import StdImageField, StdImageFieldFile
 
 
 class UploadTo(object):
-    file_pattern = "%(name)s.%(ext)s"
+    file_pattern = "%(name)s%(ext)s"
     path_pattern = "%(path)s"
 
     def __call__(self, instance, filename):
+        path, ext = os.path.splitext(filename)
+        path, name = os.path.split(path)
         defaults = {
-            'ext': filename.rsplit('.', 1)[1],
-            'name': filename.rsplit('.', 1)[0],
-            'path': filename.rsplit('/', 1)[0],
+            'ext': ext,
+            'name': name,
+            'path': path,
             'class_name': instance.__class__.__name__,
         }
         defaults.update(self.kwargs)
@@ -87,7 +89,7 @@ def pre_save_delete_callback(sender, instance, **kwargs):
 
 
 def render_variations(file_name, variations, replace=False,
-                      storage=DefaultStorage()):
+                      storage=default_storage):
     """Render all variations for a given field."""
     for key, variation in variations.items():
         StdImageFieldFile.render_variation(

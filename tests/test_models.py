@@ -13,17 +13,19 @@ class UUID4Monkey(object):
 
 uuid.__dict__['uuid4'] = lambda: UUID4Monkey()
 
-from django.conf import settings
-from django.core.files import File
-from django.test import TestCase
-from django.contrib.auth.models import User
+import django  # NoQA
+from django.conf import settings  # NoQA
+from django.core.files import File  # NoQA
+from django.test import TestCase  # NoQA
+from django.contrib.auth.models import User  # NoQA
 
 from .models import (
     SimpleModel, ResizeModel, AdminDeleteModel,
     ThumbnailModel, ResizeCropModel, AutoSlugClassNameDirModel,
     UUIDModel,
     UtilVariationsModel,
-    ThumbnailWithoutDirectoryModel)
+    ThumbnailWithoutDirectoryModel,
+    CustomRenderVariationsModel)  # NoQA
 
 IMG_DIR = os.path.join(settings.MEDIA_ROOT, 'img')
 
@@ -157,6 +159,14 @@ class TestModel(TestStdImage):
         assert os.path.exists(original)
         assert os.path.exists(thumbnail)
 
+    def test_custom_render_variations(self):
+        instance = CustomRenderVariationsModel.objects.create(
+            image=self.fixtures['600x400.jpg']
+        )
+        # Image size must be 100x100 despite variations settings
+        assert instance.image.thumbnail.width == 100
+        assert instance.image.thumbnail.height == 100
+
 
 class TestUtils(TestStdImage):
     """Tests Utils"""
@@ -174,9 +184,14 @@ class TestUtils(TestStdImage):
         AdminDeleteModel.objects.create(
             image=self.fixtures['100.gif']
         )
-        self.client.post('/admin/tests/admindeletemodel/1/', {
-            'image-clear': 'checked',
-        })
+        if django.VERSION >= (1, 9):
+            self.client.post('/admin/tests/admindeletemodel/1/change/', {
+                'image-clear': 'checked',
+            })
+        else:
+            self.client.post('/admin/tests/admindeletemodel/1/', {
+                'image-clear': 'checked',
+            })
         self.assertFalse(
             os.path.exists(os.path.join(IMG_DIR, 'image.gif'))
         )
@@ -185,9 +200,14 @@ class TestUtils(TestStdImage):
         AdminDeleteModel.objects.create(
             image=self.fixtures['100.gif']
         )
-        self.client.post('/admin/tests/admindeletemodel/1/', {
-            'image': self.fixtures['600x400.jpg'],
-        })
+        if django.VERSION >= (1, 9):
+            self.client.post('/admin/tests/admindeletemodel/1/change/', {
+                'image': self.fixtures['600x400.jpg'],
+            })
+        else:
+            self.client.post('/admin/tests/admindeletemodel/1/', {
+                'image': self.fixtures['600x400.jpg'],
+            })
         self.assertFalse(
             os.path.exists(os.path.join(IMG_DIR, 'image.gif'))
         )

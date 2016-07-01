@@ -7,17 +7,17 @@ import traceback
 from multiprocessing import Pool, cpu_count
 
 import progressbar
-from django.core.management import BaseCommand
-from django.db.models import get_model
+from django.apps import apps
+from django.core.files.storage import get_storage_class
+from django.core.management import BaseCommand, CommandError
 
 from stdimage.utils import render_variations
 
-is_pypy = '__pypy__' in sys.builtin_module_names
 BAR = None
 
 
-class MemoryUsageWidget(progressbar.widgets.Widget):
-    def update(self, pbar):
+class MemoryUsageWidget(progressbar.widgets.WidgetBase):
+    def __call__(self, progress, data):
         return 'RAM: {0:10.1f} MB'.format(
             resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
         )
@@ -28,6 +28,10 @@ class Command(BaseCommand):
     args = '<app.model.field app.model.field>'
 
     def add_arguments(self, parser):
+        parser.add_argument('field_path',
+                            nargs='+',
+                            type=str,
+                            help='<app.model.field app.model.field>')
         parser.add_argument('--replace',
                             action='store_true',
                             dest='replace',
@@ -36,24 +40,35 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         replace = options.get('replace')
-        for route in args:
-            app_label, model_name, field_name = route.rsplit('.')
-            model_class = get_model(app_label, model_name)
+        if len(options['field_path']):
+            routes = options['field_path']
+        else:
+            routes = [options['field_path']]
+        for route in routes:
+            try:
+                app_label, model_name, field_name = route.rsplit('.')
+            except ValueError:
+                raise CommandError("Error parsing field_path '{}'. Use format "
+                                   "<app.model.field app.model.field>."
+                                   .format(route))
+            model_class = apps.get_model(app_label, model_name)
             field = model_class._meta.get_field(field_name)
 
             queryset = model_class._default_manager \
                 .exclude(**{'%s__isnull' % field_name: True}) \
                 .exclude(**{field_name: ''})
+            obj = queryset.first()
+            do_render = True
+            if obj:
+                f = getattr(obj, field_name)
+                do_render = f.field.render_variations
             images = queryset.values_list(field_name, flat=True).iterator()
             count = queryset.count()
 
-            if is_pypy:  # pypy doesn't handle multiprocessing to well
-                self.render_linear(field, images, count, replace)
-            else:
-                self.render_in_parallel(field, images, count, replace)
+            self.render(field, images, count, replace, do_render)
 
     @staticmethod
-    def render_in_parallel(field, images, count, replace):
+    def render(field, images, count, replace, do_render):
         pool = Pool(
             initializer=init_progressbar,
             initargs=[count]
@@ -61,8 +76,10 @@ class Command(BaseCommand):
         args = [
             dict(
                 file_name=file_name,
+                do_render=do_render,
                 variations=field.variations,
                 replace=replace,
+                storage=field.storage.deconstruct()[0],
             )
             for file_name in images
         ]
@@ -70,21 +87,6 @@ class Command(BaseCommand):
         pool.apply(finish_progressbar)
         pool.close()
         pool.join()
-
-    @staticmethod
-    def render_linear(field, images, count, replace):
-        init_progressbar(count)
-        args_list = [
-            dict(
-                file_name=file_name,
-                variations=field.variations,
-                replace=replace,
-            )
-            for file_name in images
-        ]
-        for args in args_list:
-            render_variations(**args)
-        finish_progressbar()
 
 
 def init_progressbar(count):
@@ -105,7 +107,13 @@ def finish_progressbar():
 
 def render_field_variations(kwargs):
     try:
-        render_variations(**kwargs)
+        kwargs['storage'] = get_storage_class(kwargs['storage'])()
+        do_render = kwargs.pop('do_render')
+        if callable(do_render):
+            do_render = do_render(**kwargs)
+        if do_render:
+            render_variations(**kwargs)
+
         global BAR
         BAR += 1
     except:
